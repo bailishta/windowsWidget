@@ -1,0 +1,13 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{1ed66e37-698f-44b7-bb48-2cad03261379}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<Import Project="..\build\Common.props"/>
+
+<ItemDefinitionGroup><Link><SubSystem>Console</SubSystem><AdditionalDependencies>d2d1.lib;dwrite.lib;%(AdditionalDependencies)</AdditionalDependencies></Link><Manifest><AdditionalManifestFiles>..\build\app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest></ItemDefinitionGroup>
+<ItemGroup><ClCompile Include="main.cpp"/></ItemGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+
+</Project>

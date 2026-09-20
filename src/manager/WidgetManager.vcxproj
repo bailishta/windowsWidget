@@ -1,0 +1,41 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{dbced951-7f31-4312-bc6c-bf2575c73bcf}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<Import Project="..\..\build\Common.props"/>
+<PropertyGroup><WindowsPackageType>None</WindowsPackageType><WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><AppxPackage>false</AppxPackage><UseWinUI>true</UseWinUI><CppWinRTOptimized>true</CppWinRTOptimized><CppWinRTGenerateWindowsMetadata>false</CppWinRTGenerateWindowsMetadata></PropertyGroup>
+<Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props"/>
+<Import Project="..\..\packages\Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.props"/>
+<Import Project="..\..\packages\Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\native\Microsoft.WindowsAppSDK.Foundation.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.ML.1.8.2197\build\native\Microsoft.WindowsAppSDK.ML.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\native\Microsoft.WindowsAppSDK.Runtime.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\native\Microsoft.WindowsAppSDK.Widgets.props"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\native\Microsoft.WindowsAppSDK.WinUI.props"/>
+<ItemDefinitionGroup><Link><SubSystem>Windows</SubSystem><AdditionalDependencies>d2d1.lib;dwrite.lib;%(AdditionalDependencies)</AdditionalDependencies></Link><Manifest><AdditionalManifestFiles>..\..\build\app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest></ItemDefinitionGroup>
+<ItemGroup><ClCompile Include="main.cpp"/></ItemGroup>
+<Import Project="..\..\packages\Microsoft.Web.WebView2.1.0.3179.45\build\native\Microsoft.Web.WebView2.targets"/>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+
+<Import Project="..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets"/>
+<Import Project="..\..\packages\Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.targets"/>
+<Import Project="..\..\packages\Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\native\Microsoft.WindowsAppSDK.Foundation.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.ML.1.8.2197\build\native\Microsoft.WindowsAppSDK.ML.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\native\Microsoft.WindowsAppSDK.Runtime.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\native\Microsoft.WindowsAppSDK.Widgets.targets"/>
+<Import Project="..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\native\Microsoft.WindowsAppSDK.WinUI.targets"/>
+</Project>
+

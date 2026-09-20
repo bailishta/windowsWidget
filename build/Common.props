@@ -1,0 +1,24 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)..\</RepoRoot>
+    <OutDir>$(RepoRoot)out\$(Configuration)\</OutDir>
+    <IntDir>$(RepoRoot)out\obj\$(MSBuildProjectName)\$(Configuration)\</IntDir>
+    <TargetName>$(MSBuildProjectName)</TargetName>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>UNICODE;_UNICODE;NOMINMAX;WIN32_LEAN_AND_MEAN;_WIN32_WINNT=0x0A00;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(RepoRoot)src\common;$(RepoRoot)sdk;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><ExceptionHandling>Sync</ExceptionHandling>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <Optimization Condition="'$(Configuration)'=='Release'">MaxSpeed</Optimization>
+      <WholeProgramOptimization Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
+    </ClCompile>
+    <Link><AdditionalDependencies>windowsapp.lib;user32.lib;gdi32.lib;advapi32.lib;shell32.lib;ole32.lib;shcore.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies><GenerateDebugInformation>true</GenerateDebugInformation></Link>
+    <Link Condition="'$(Configuration)'=='Release'"><LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration><OptimizeReferences>true</OptimizeReferences><EnableCOMDATFolding>true</EnableCOMDATFolding><LinkIncremental>false</LinkIncremental></Link>
+  </ItemDefinitionGroup>
+</Project>

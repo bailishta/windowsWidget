@@ -1,0 +1,1 @@
+{"id":"org.windowswidget.clock","name":"时钟","version":"1.0.3","bundledRevision":3,"sdk":1,"architecture":"x64","entry":"ClockWidget.dll","gridColumns":3,"gridRows":2,"width":280,"height":180,"minWidth":32,"minHeight":32,"maxWidth":4096,"maxHeight":4096}
