@@ -1,0 +1,83 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{2B9F4E17-8C53-4A6D-9E0B-5F1A7D3C8B62}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<Import Project="..\..\..\build\Common.props"/>
+<!-- A throwaway spike, not shipped: it lands under the SDK it is investigating. -->
+<PropertyGroup><OutDir>$(RepoRoot)out\$(Configuration)\sdk\spike\</OutDir><OutputPath>$(RepoRoot)out\$(Configuration)\sdk\spike\</OutputPath></PropertyGroup>
+<PropertyGroup><WindowsPackageType>None</WindowsPackageType><WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained><AppxPackage>false</AppxPackage><UseWinUI>true</UseWinUI><CppWinRTOptimized>true</CppWinRTOptimized><CppWinRTGenerateWindowsMetadata>false</CppWinRTGenerateWindowsMetadata></PropertyGroup>
+<!-- Exactly the import set src/manager/WidgetManager.vcxproj uses; the C++/WinRT
+     projections for Microsoft.UI.Xaml.* are generated from the winmds these bring in. -->
+<Import Project="..\..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props"/>
+<Import Project="..\..\..\packages\Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.props"/>
+<Import Project="..\..\..\packages\Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\Microsoft.WindowsAppSDK.Foundation.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\Microsoft.WindowsAppSDK.InteractiveExperiences.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.ML.1.8.2197\build\Microsoft.WindowsAppSDK.ML.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\Microsoft.WindowsAppSDK.Runtime.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\Microsoft.WindowsAppSDK.Widgets.props"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\Microsoft.WindowsAppSDK.WinUI.props"/>
+<!-- The package targets are supposed to add these, but this project did not pick
+     them up, so they are declared explicitly from the same list the manager uses. -->
+<ItemGroup>
+  <Reference Include="..\..\..\packages\Microsoft.Web.WebView2.1.0.3179.45\lib\Microsoft.Web.WebView2.Core.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Graphics.Imaging.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Windows.AI.ContentSafety.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Windows.AI.Foundation.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Windows.AI.Imaging.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Windows.AI.Text.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\metadata\Microsoft.Windows.AI.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Security.Authentication.OAuth.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.AppLifecycle.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.AppNotifications.Builder.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.AppNotifications.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.ApplicationModel.Background.UniversalBGTask.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.ApplicationModel.Background.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.ApplicationModel.DynamicDependency.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.ApplicationModel.Resources.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.ApplicationModel.WindowsAppRuntime.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.BadgeNotifications.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Foundation.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Globalization.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Management.Deployment.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Media.Capture.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.PushNotifications.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Security.AccessControl.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Storage.Pickers.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.Storage.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.System.Power.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\metadata\Microsoft.Windows.System.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\metadata\10.0.18362.0\Microsoft.Foundation.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\metadata\10.0.18362.0\Microsoft.Graphics.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\metadata\10.0.18362.0\Microsoft.UI.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.ML.1.8.2197\metadata\Microsoft.Windows.AI.MachineLearning.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\metadata\Microsoft.Windows.Widgets.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\metadata\Microsoft.UI.Text.winmd"><Private>false</Private></Reference>
+  <Reference Include="..\..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\metadata\Microsoft.UI.Xaml.winmd"><Private>false</Private></Reference>
+</ItemGroup>
+<ItemDefinitionGroup>
+  <ClCompile><AdditionalIncludeDirectories>..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile>
+  <Link><SubSystem>Console</SubSystem><AdditionalDependencies>..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\lib\native\win10-x64\Microsoft.UI.Dispatching.lib;d2d1.lib;dwrite.lib;%(AdditionalDependencies)</AdditionalDependencies></Link><Manifest><AdditionalManifestFiles>..\..\..\build\app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest></ItemDefinitionGroup>
+<ItemGroup><ClCompile Include="XamlIslandSpike.cpp"/></ItemGroup>
+<Import Project="..\..\..\packages\Microsoft.Web.WebView2.1.0.3179.45\build\native\Microsoft.Web.WebView2.targets"/>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+<Import Project="..\..\..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets"/>
+<Import Project="..\..\..\packages\Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.targets"/>
+<Import Project="..\..\..\packages\Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\Microsoft.WindowsAppSDK.Foundation.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\Microsoft.WindowsAppSDK.InteractiveExperiences.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.ML.1.8.2197\build\Microsoft.WindowsAppSDK.ML.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\Microsoft.WindowsAppSDK.Runtime.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\Microsoft.WindowsAppSDK.Widgets.targets"/>
+<Import Project="..\..\..\packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\Microsoft.WindowsAppSDK.WinUI.targets"/>
+</Project>

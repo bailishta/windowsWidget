@@ -1,88 +1,27 @@
-# 小组件 SDK v1
+# SDK 与组件接口
 
-SDK 采用 C ABI，组件用 C++ 实现并导出 `WidgetGetApi`。一个插件目录包含 `widget.json`、x64 DLL 及可选资源。运行程序不需要重新编译即可发现插件。
+新版同时支持 schema 1 零代码组件和独立 DLL MOD。实际 C ABI 以 [WidgetSdk.h](../sdk/WidgetSdk.h) 为准，包格式见 [接入教程](PLUGIN_DEV.md)。
 
-## 最小示例
+每个组件在独立进程运行；主程序只通过共享内存传递布局、主题、显示状态和通用命令。业务代码和内容界面都在 MOD DLL，新 MOD 不需要修改管理器。
 
-`sdk/example` 是独立 MSBuild 工程，仅依赖 `sdk/WidgetSdk.h` 和 Windows SDK。在 VS 2022 的 x64 Native Tools 命令环境执行：
+## 原生接口
 
-```powershell
-msbuild .\sdk\example\HelloWidget.vcxproj /p:Configuration=Release /p:Platform=x64
-```
+导出 HRESULT __cdecl WidgetGetApi(uint32_t requested_version, WidgetApi* api)。版本号仍为 WIDGET_ABI_VERSION == 1；WidgetApi2 / WidgetHostApi2 是通过结构大小协商的扩展布局，不是另一个 requested_version。DLL 为 x64，必须检查 size。
 
-把生成的 `sdk/example/bin` 中 `HelloWidget.dll` 和 `widget.json` 放入 `%LOCALAPPDATA%\WindowsWidget\plugins\hello`，在管理器中重新扫描。SDK 目录可以整体复制到其他项目；示例不引用管理器内部代码或 NuGet 包。
+- create / destroy：创建和释放实例。
+- layout / theme：内容区物理尺寸、DPI 与明暗主题变化。
+- configure：可实现插件配置；创建时宿主传入独立 configuration.json 或清单 configuration。
+- WIDGET_CAPABILITY_XAML：通过 host.ui_render 提供完整 UTF-8 XAML，宿主创建标准 WinUI 控件；命名 Button 的点击通过 ui_event(instance, x:Name) 返回。
+- 无 XAML 标记：create 返回本进程内的子 HWND，parent 必须为传入宿主窗口；插件负责内容绘制。
+- ui_event("refresh") / ui_event("settings")：控制中心的通用动作，插件自行响应。
+- log / configuration_changed / data_directory_utf8：日志、配置保存和独立数据目录。
 
-## 清单
+生命周期与 UI 回调运行在宿主 UI 线程。后台结果须回到所属 UI 线程再调用 ui_render，该函数拒绝跨线程操作。每次 XAML 最多 128 KB，返回 0 表示解析失败。不要在 DLL 内创建 WinUI Application 或资源提供者；使用宿主渲染或普通 Win32 子窗口。
 
-```json
-{
-  "id": "example.hello",
-  "name": "Hello 示例",
-  "version": "1.0.0",
-  "sdk": 1,
-  "architecture": "x64",
-  "entry": "HelloWidget.dll",
-  "gridColumns": 3,
-  "gridRows": 2,
-  "width": 240,
-  "height": 140,
-  "minWidth": 140,
-  "minHeight": 100,
-  "maxWidth": 640,
-  "maxHeight": 480
-}
-```
+固定宽度字段、UTF-8、不透明句柄；不跨 DLL 传 STL、异常或交叉释放。字符串在调用期间借用，data_directory_utf8 和 host 表在 destroy 前有效。插件必须结束线程并释放资源；卡住的组件由独立 Job 有界终止。
 
-`gridColumns` / `gridRows` 指定默认宽高格数，必须一起提供，取 1～12 的整数。每格采用当前桌面 `IFolderView::GetSpacing` 返回的图标排列单元，包含周围留白；组件外框（含拖动栏）宽高分别是列数、行数乘以单元宽高。未提供这两个字段的旧插件根据 `width` / `height` 在首次放置时换算。
+内容宽度 288 DIP（外框 320 DIP 减左右边距），清单高度 180–600 DIP。外框、标题拖动区、系统区域避让和统一动画由管理器负责，内容界面与业务由插件控制。支持自由组合标准 WinUI 控件，或使用原生 HWND 自行绘制；并不是四种固定内容模板。
 
-`width` / `height` 是兼容旧版本的默认 DIP 尺寸；`minWidth` / `minHeight` / `maxWidth` / `maxHeight` 继续以 DIP 限制实际外框，最小不能小于 32，最大不能超过 4096，默认值须位于范围内。网格尺寸超出插件限制时报告错误，插件作者应选择合适的限制以支持小尺寸。`entry` 是插件目录内的相对路径。重复 ID、架构不匹配、SDK 不兼容、清单错误或 DLL 缺失会显示为不可用。
+缺少 DLL、路径越界、接口不兼容、启动超时和异常退出不会让整个管理器退出。这是进程故障隔离，不是恶意代码沙箱。只加载信任的 MOD。
 
-## 生命周期和线程
-
-1. 宿主安全加载 DLL，查找 `WidgetGetApi`，传入 ABI 版本及预设 `size` 的 `WidgetApi`。
-2. 插件检查版本和结构大小，填入函数指针，成功返回 `S_OK`。
-3. `create` 接收父 HWND、DPI、主题、JSON 配置和宿主服务表，返回插件对象及本进程内的子 HWND。窗口必须以传入 HWND 为父窗口。
-4. 宿主管理外层窗口和消息循环，调用 `layout`、`theme`、`configure`。
-5. `destroy` 释放对象、窗口、线程、计时器和插件自己的资源。
-
-所有插件入口回调都在宿主 UI 线程执行，宿主服务也仅允许在该线程调用。网络/磁盘/耗时计算应放到插件工作线程，结果通过自己的窗口消息回到 UI 线程；禁止让插件工作线程直接操作 HWND 或调用服务表。`DllMain` 中只做必要的轻量初始化，不启动耗时任务。
-
-初次初始化须在 15 秒内完成。插件异常崩溃或错误会终止当前宿主，不影响其他实例。Explorer 重启时可能对同一个实例执行销毁和重新创建，因此业务数据不要只留在 UI 对象中。
-
-## API 契约
-
-| 函数 | 契约 |
-| --- | --- |
-| `create(info, instance, content)` | 创建属于本进程的 `WS_CHILD` 子窗口；失败返回 HRESULT，输出初始化为空 |
-| `destroy(instance)` | 同模块内释放内存；能处理窗口已被系统销毁的情况 |
-| `configure(instance, json)` | 更新 JSON 配置；成功返回 `S_OK`，无效配置返回失败 HRESULT |
-| `layout(instance, width_px, height_px, dpi)` | 宿主已调整子窗口大小，通知可用像素区域和有效 DPI，重建绘制资源 |
-| `theme(instance, dark)` | `dark=1` 为深色，`0` 为浅色；重新绘制内容 |
-
-`WidgetHostApi` 提供：
-
-- `log(context, level, utf8)`：写入管理器日志。
-- `configuration_changed(context, json_utf8)`：插件内部操作改变设置时通知管理器保存；参数必须是 JSON 对象。
-- `data_directory_utf8`：每实例独立目录，生命周期持续到 `destroy`；业务数据读写和迁移由插件自行负责。
-
-传入字符串均为 UTF-8；除了数据目录字符串，其余只在当前调用期间有效，需要保留时自行复制。对象指针是不透明句柄。不得跨 DLL 边界传 STL 容器、C++ 异常、分配后交给另一个模块释放的内存；所有回调自行捕获异常。绘制应使用 `layout` 传入的 DPI，而不要假设 Explorer 的父窗口 DPI 就是所在显示器 DPI。
-
-首版接口要求所有回调存在。设置持久化由管理器承担，便签文本、数据库和缓存等业务数据由插件自行管理。插件必须接受系统会回收整个宿主进程的事实，重要业务数据应及时提交。
-
-宿主 UI 线程语言固定为 `zh-CN` 或 `en-US`。插件可在 UI 回调中用 `GetThreadUILanguage()` 获取语言；语言切换时宿主更新线程语言，并再次调用 `theme` 请求内容刷新。ABI v1 不变，旧插件仍可加载。系统区域可能是其他语言，日期请显式指定 `zh-CN` 或 `en-US`，时钟示例展示了处理方法。
-
-## 内部通信
-
-插件作者无需实现 IPC。管理器和宿主使用本机消息模式命名管道、重叠 I/O、当前用户 ACL、随机管道名以及对端进程验证。消息为 UTF-8 JSON，最大 1 MiB，包含 `protocol`、`op`、`id`、`seq`。该协议目前是内部实现，不作为第三方直接接入的稳定接口。
-
-## 桌面与隔离边界
-
-宿主负责顶部拖动区、尺寸限制、布局锁定、桌面挂接、主题通知及显示器变化。内容窗口仅占组件区域。不要修改父窗口或 Explorer 的窗口、消息循环和 DPI 模式。
-
-添加、恢复和拖动结束时，宿主通过 Shell 的 `IFolderView` 只读查询桌面网格及图标位置，避让图标与其他组件。跨宿主的短期互斥锁保护位置分配，避免并发初始化选择同一个空位。网格位置以屏幕像素计算，再转换为显示器相对 DIP 保存。没有足够空位时报告错误并隐藏组件；不会自动移动桌面图标，也不会将插件注册为 Explorer 图标项。
-
-实例保存 `gridColumns`、`gridRows` 作为尺寸来源，DIP 宽高仅保留为兼容与诊断缓存。宿主在 UI 线程接收调整尺寸请求，按当前格距换算并调用原有 `layout` 回调，ABI 不变；布局修订号防止旧布局消息覆盖较新的尺寸请求。低频查询缓存的 Shell 视图格距，变化后保持格数重排。
-
-宿主容器采用 `WS_EX_LAYERED` 和不透明 Alpha，为使用 `WS_EX_NOREDIRECTIONBITMAP` 的 Windows 11 桌面提供独立合成表面。插件的子窗口可使用标准 GDI 绘制；Direct2D 可参考时钟，通过 `ID2D1DCRenderTarget` 向 `BeginPaint` 的 HDC 绘制。直接绑定 HWND 的 GPU 交换链需要另外验证与层叠父窗口的兼容性，不能仅凭创建成功判断内容已经显示。
-
-当前支持 x64 原生 DLL；每个实例单独进程。进程隔离不是权限沙箱，请仅运行可信的原生插件。
+完整独立示例见 [蓝牙电量插件](../plugins/bluetooth-battery/README.md)。旧桌面宿主保留于 src/host，早期文档在 docs/archive。

@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "builtin.quick",
+  "name": "常用入口",
+  "kind": "quick",
+  "height": 208,
+  "description": "三个自定义入口，可打开程序、文件夹或网址。"
+}

@@ -42,6 +42,9 @@
       </StackPanel></ScrollViewer>
     </Border>
   </Grid>
-  <TextBlock x:Name="Footer" Grid.Row="3" Text="原型 · 独立进程托管 · 自动保存布局" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+  <Grid Grid.Row="3" ColumnSpacing="12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBlock x:Name="Footer" Text="原型 · 独立进程托管 · 自动保存布局" TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+    <Button x:Name="LogsButton" Grid.Column="1" Content="打开日志"/>
+  </Grid>
 </Grid>
 

@@ -11,6 +11,7 @@
 #include <winrt/Microsoft.UI.Dispatching.h>
 #include <microsoft.ui.xaml.window.h>
 #include <dwmapi.h>
+#include <source_location>
 #pragma comment(lib, "dwmapi.lib")
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
@@ -21,7 +22,30 @@ fs::path data_root;
 bool smoke = false;
 bool validate_ui = false;
 int smoke_theme = 0;
+int exit_code = 0;
+void ui_log(std::string_view text, LogLevel level = LogLevel::Info, std::string_view instance = {}) noexcept {
+    try {
+        log_file(data_root / L"logs" / L"ui.log", text, level, "manager-ui", instance);
+    } catch (...) {
+        OutputDebugStringA("WindowsWidget: UI diagnostic unavailable\n");
+    }
+}
 struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
+    App() {
+        UnhandledException([](auto const &, UnhandledExceptionEventArgs const &event) {
+            try {
+                char code[32];
+                sprintf_s(code, "0x%08X", unsigned(event.Exception().value));
+                ui_log("Unhandled WinUI exception HRESULT=" + std::string(code) + " " +
+                           to_string(event.Message()),
+                       LogLevel::Fatal);
+                logger().flush(std::chrono::seconds(2));
+            } catch (...) {
+                OutputDebugStringA("WindowsWidget: unhandled WinUI error\n");
+            }
+            // Leave Handled unchanged: fatal UI state is not safe to continue.
+        });
+    }
     XamlTypeInfo::XamlControlsXamlMetaDataProvider metadata;
     Markup::IXamlType GetXamlType(winrt::Windows::UI::Xaml::Interop::TypeName const &type) {
         return metadata.GetXamlType(type);
@@ -82,6 +106,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
               Label{L"SaveConfigButton", L"应用配置", L"Apply configuration"}})
             control<Button>(label.name).Content(box_value(tr(label.zh, label.en)));
         control<Button>(L"ApplySizeButton").Content(box_value(tr(L"应用大小", L"Apply size")));
+        control<Button>(L"LogsButton").Content(box_value(tr(L"打开日志", L"Open logs")));
         control<ComboBox>(L"SizePreset").PlaceholderText(tr(L"常用大小", L"Common sizes"));
         control<NumberBox>(L"ColumnsBox").Header(box_value(tr(L"宽（格）", L"Width (cells)")));
         control<NumberBox>(L"RowsBox").Header(box_value(tr(L"高（格）", L"Height (cells)")));
@@ -114,11 +139,15 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
     template <class T> T control(wchar_t const *name) {
         return root.FindName(name).as<T>();
     }
-    template <class F> void action(F f) {
+    template <class F> void action(F f, std::source_location location = std::source_location::current()) {
         try {
+            ui_log("UI action source_line=" + std::to_string(location.line()), LogLevel::Debug, selected);
             f();
         } catch (...) {
-            control<TextBlock>(L"ErrorLabel").Text(to_hstring(error_text()));
+            auto error = error_text();
+            ui_log("UI action failed source_line=" + std::to_string(location.line()) + " " + error,
+                   LogLevel::Error, selected);
+            control<TextBlock>(L"ErrorLabel").Text(to_hstring(error));
         }
     }
     void install_clock() {
@@ -141,6 +170,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             }
             if (m == WM_APP + 1) {
                 if (LOWORD(l) == WM_LBUTTONUP || LOWORD(l) == NIN_SELECT) {
+                    ui_log("Opened from tray");
                     ShowWindow(self->hwnd, SW_SHOW);
                     SetForegroundWindow(self->hwnd);
                 } else if (LOWORD(l) == WM_RBUTTONUP || LOWORD(l) == WM_CONTEXTMENU) {
@@ -154,6 +184,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
                     auto id = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, p.x, p.y, 0, h, nullptr);
                     DestroyMenu(menu);
                     if (id == 1) {
+                        ui_log("Opened from tray menu");
                         ShowWindow(self->hwnd, SW_SHOW);
                         SetForegroundWindow(self->hwnd);
                     }
@@ -192,6 +223,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
         if (quitting)
             return;
         quitting = true;
+        ui_log("Manager shutdown requested");
         if (timer)
             timer.Stop();
         Shell_NotifyIconW(NIM_DELETE, &icon);
@@ -199,6 +231,8 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             engine->shutdown();
         if (window)
             window.Close();
+        ui_log("Manager shutdown complete");
+        logger().flush();
         Exit();
     }
     void OnLaunched(LaunchActivatedEventArgs const &) {
@@ -206,6 +240,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             single.reset(CreateMutexW(
                 nullptr, FALSE, smoke ? L"Local\\WindowsWidget.Smoke" : L"Local\\WindowsWidget.Manager"));
             if (GetLastError() == ERROR_ALREADY_EXISTS) {
+                ui_log("Another manager is running; activating existing instance");
                 auto existing = FindWindowW(L"WindowsWidget.Tray", nullptr);
                 if (existing)
                     PostMessageW(existing, WM_APP + 1, 0, WM_LBUTTONUP);
@@ -213,6 +248,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
                 return;
             }
             fs::create_directories(data_root / L"plugins");
+            ui_log("Manager launching build=" __DATE__ " " __TIME__);
             install_clock();
             EngineOptions options;
             options.offdesktop = validate_ui;
@@ -233,6 +269,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             try {
                 window.SystemBackdrop(Media::MicaBackdrop());
             } catch (...) {
+                ui_log("Mica backdrop unavailable: " + error_text(), LogLevel::Warning);
             }
             auto dpi = GetDpiForWindow(hwnd);
             MONITORINFO screen{sizeof(screen)};
@@ -243,6 +280,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
                          SWP_NOMOVE | SWP_NOZORDER);
             window.Closed([this](auto &&, WindowEventArgs const &e) {
                 if (!quitting) {
+                    ui_log("Window closed; continuing in tray");
                     e.Handled(true);
                     ShowWindow(hwnd, SW_HIDE);
                 }
@@ -259,6 +297,17 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
                 });
             });
             control<Button>(L"RefreshButton").Click([this](auto &&, auto &&) { engine->rescan(); });
+            control<Button>(L"LogsButton").Click([this](auto &&, auto &&) {
+                action([&] {
+                    auto path = data_root / L"logs";
+                    fs::create_directories(path);
+                    ui_log("Open logs requested");
+                    auto result = reinterpret_cast<INT_PTR>(
+                        ShellExecuteW(hwnd, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+                    if (result <= 32)
+                        throw std::runtime_error("Open logs folder failed code=" + std::to_string(result));
+                });
+            });
             control<Button>(L"FolderButton").Click([](auto &&, auto &&) {
                 ShellExecuteW(nullptr, L"open", (data_root / L"plugins").c_str(), nullptr, nullptr,
                               SW_SHOWNORMAL);
@@ -359,8 +408,13 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
                           "Grid size preset selects 3 by 2");
                     check(!IsWindowVisible(hwnd), "UI validation window stays hidden");
                 }
-                log_file(data_root / L"logs" / L"ui.log",
-                         "PASS hidden WinUI English/Chinese controls and resources");
+                check(unbox_value<hstring>(control<Button>(L"LogsButton").Content()) ==
+                          tr(L"打开日志", L"Open logs"),
+                      "Localized log folder action");
+                action([] { throw std::runtime_error("diagnostic validation error"); });
+                check(control<TextBlock>(L"ErrorLabel").Text() == L"diagnostic validation error",
+                      "UI error remains visible while being logged");
+                ui_log("PASS hidden WinUI English/Chinese controls, size presets and diagnostic error handling");
                 shutdown();
                 return;
             }
@@ -379,10 +433,11 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             launched = now_ms();
             timer.Start();
             window.Activate();
-            log_file(data_root / L"logs" / L"ui.log", "WinUI window ready");
+            ui_log("WinUI window ready");
         } catch (...) {
             auto err = error_text();
-            log_file(data_root / L"logs" / L"ui.log", err);
+            exit_code = 1;
+            ui_log("Manager startup failed: " + err, LogLevel::Fatal);
             if (!smoke)
                 MessageBoxW(nullptr, wide(err).c_str(),
                             tr(L"WindowsWidget 启动失败", L"WindowsWidget failed to start"), MB_ICONERROR);
@@ -396,6 +451,7 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
         BOOL native_dark = dark;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &native_dark, sizeof(native_dark));
         if (dark != last_dark) {
+            ui_log(dark ? "Effective theme=dark" : "Effective theme=light");
             last_dark = dark;
             engine->theme(dark);
         }
@@ -528,6 +584,14 @@ struct App : ApplicationT<App, Markup::IXamlMetadataProvider> {
             .Text(std::wstring(tr(L"运行实例 · ", L"Widget instances · ")) +
                   std::to_wstring(instances.size()));
         auto warn = engine->warning();
+        if (logger().failed() > 0)
+            warn = utf8(tr(L"日志写入失败，请检查日志目录权限或磁盘空间。",
+                           L"Logging failed. Check log folder permissions and disk space.")) +
+                   (warn.empty() ? "" : " " + warn);
+        else if (logger().dropped() > 0)
+            warn =
+                utf8(tr(L"日志量过大，部分记录已丢弃。", L"Log queue overflow: some records were dropped.")) +
+                (warn.empty() ? "" : " " + warn);
         control<TextBlock>(L"Footer").Text(warn.empty()
                                                ? tr(L"桌面网格自动对齐 · 自动保存布局",
                                                     L"Desktop grid alignment · Layout saved automatically")
@@ -556,8 +620,18 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         auto args = CommandLineToArgvW(GetCommandLineW(), &count);
         for (int n = 1; n < count; ++n) {
             std::wstring_view arg = args[n];
-            if (arg == L"--data-dir" && n + 1 < count)
-                data_root = fs::absolute(args[++n]);
+            if (arg == L"--data-dir" && n + 1 < count) {
+                std::wstring value = args[++n];
+                if (value.empty())
+                    throw std::runtime_error("--data-dir needs a directory path");
+                auto candidate = fs::absolute(value);
+                std::error_code probe;
+                if (fs::exists(candidate, probe) && !fs::is_directory(candidate, probe))
+                    throw std::runtime_error("--data-dir must name a directory, not an existing file");
+                if (candidate == candidate.root_path())
+                    throw std::runtime_error("--data-dir must not be a drive root");
+                data_root = candidate;
+            }
             else if (arg == L"--smoke")
                 smoke = true;
             else if (arg == L"--validate-ui") {
@@ -567,14 +641,34 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
                 smoke_theme = 2;
             else if (arg == L"--light")
                 smoke_theme = 1;
+            else if (arg == L"--log-level" && n + 1 < count) {
+                std::wstring_view level(args[++n]);
+                if (level == L"debug")
+                    logger().minimum(LogLevel::Debug);
+                else if (level == L"info")
+                    logger().minimum(LogLevel::Info);
+                else if (level == L"warning")
+                    logger().minimum(LogLevel::Warning);
+                else if (level == L"error")
+                    logger().minimum(LogLevel::Error);
+                else
+                    throw std::runtime_error("Expected --log-level debug|info|warning|error");
+            }
         }
         LocalFree(args);
         if (validate_ui && data_root == default_root())
             throw std::runtime_error("UI validation requires an isolated --data-dir");
+        ui_log("Process start executable=" + utf8(executable_dir().wstring()) +
+               " data_root=" + utf8(data_root.wstring()) + " validation=" + std::to_string(validate_ui));
         Application::Start([](auto &&) { make<App>(); });
-        return 0;
+        ui_log("Process exit code=" + std::to_string(exit_code));
+        logger().flush();
+        return exit_code;
     } catch (...) {
-        OutputDebugStringW(wide(error_text()).c_str());
+        auto error = error_text();
+        ui_log("Entry point failed: " + error, LogLevel::Fatal);
+        OutputDebugStringW(wide(error).c_str());
+        logger().flush();
         return 1;
     }
 }

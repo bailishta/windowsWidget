@@ -1,0 +1,1 @@
+{"id":"org.windowswidget.weather","name":"天气","version":"1.0.0","sdk":1,"architecture":"x64","entry":"WeatherWidget.dll","gridColumns":3,"gridRows":2,"width":300,"height":200,"minWidth":140,"minHeight":100,"maxWidth":1000,"maxHeight":1000}

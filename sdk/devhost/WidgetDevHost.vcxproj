@@ -1,0 +1,16 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{7E3B1C4A-9D62-4F1B-8A5E-2C6D4B7F1A93}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<Import Project="..\..\build\Common.props"/>
+<!-- A development tool, not part of the app: it lands next to the SDK it serves. -->
+<PropertyGroup><OutDir>$(RepoRoot)out\$(Configuration)\</OutDir></PropertyGroup>
+<!-- Plugins may draw with WinUI 3, so the dev host carries the same Windows App SDK
+     wiring as WidgetHost.exe; otherwise a WinUI plugin could not be checked here. -->
+<Import Project="..\..\build\WinUI.props"/>
+<ItemDefinitionGroup><Link><SubSystem>Console</SubSystem><AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies></Link><Manifest><AdditionalManifestFiles>..\..\build\app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest></ItemDefinitionGroup>
+<ItemGroup><ClCompile Include="WidgetDevHost.cpp"/></ItemGroup>
+<Import Project="..\..\build\WinUI.targets"/>
+</Project>

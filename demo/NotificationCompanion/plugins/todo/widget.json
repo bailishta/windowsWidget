@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "builtin.todo",
+  "name": "待办事项",
+  "kind": "todo",
+  "height": 280,
+  "description": "添加、完成和管理自己的待办。"
+}

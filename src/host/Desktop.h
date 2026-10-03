@@ -69,16 +69,32 @@ class Desktop {
         auto c = GetWindowDpiAwarenessContext(parent_);
         check(SetThreadDpiAwarenessContext(c) != nullptr, "Desktop DPI context");
     }
-    void attach(HWND window) {
-        check(valid(), "Desktop not available");
-        auto style = GetWindowLongPtrW(window, GWL_STYLE);
-        SetWindowLongPtrW(window, GWL_STYLE, (style & ~WS_POPUP) | WS_CHILD);
-        SetLastError(0);
-        auto previous = SetParent(window, parent_);
-        check(previous || GetLastError() == 0, "Attach desktop window");
-        SetWindowPos(window, HWND_TOP, 0, 0, 0, 0,
-                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    static bool is_desktop_window(HWND window) {
+        wchar_t name[32]{};
+        GetClassNameW(window, name, 32);
+        std::wstring_view cls(name);
+        return cls == L"Progman" || cls == L"WorkerW";
     }
+    // Widgets are top-level windows, not desktop children: a XAML island refuses
+    // to initialise when its parent chain leaves this process (measured:
+    // E_ACCESSDENIED), and Windows 11's system backdrops only apply to top-level
+    // windows anyway. The desktop window is still used - but only to read the
+    // icon grid the widgets align to.
+    //
+    // Z-order policy. A widget is a top-level window now, so it has to be put
+    // back into the desktop layer whenever the z-order changes.
+    //
+    // SetWindowPos(W, X) places W directly *below* X, so inserting the widget
+    // below whatever currently sits directly above the desktop leaves it exactly
+    // where a desktop child would have been: above the wallpaper, below every
+    // application window. Raising it to the top (the obvious alternative) makes it
+    // float over the user's folders, which is never what a desktop widget wants.
+    static void restack(HWND window, HWND desktop) {
+        HWND anchor = desktop && IsWindow(desktop) ? GetWindow(desktop, GW_HWNDPREV) : nullptr;
+        SetWindowPos(window, anchor ? anchor : HWND_BOTTOM, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+
     void place(HWND window, Instance &i, bool offdesktop = false, double min_width = 1, double min_height = 1,
                double max_width = 4096, double max_height = 4096) {
         auto list = monitors();
@@ -97,7 +113,7 @@ class Desktop {
         if (!offdesktop) {
             placement = std::make_unique<PlacementGuard>();
             grid = read_desktop_grid(parent_, m.handle, m.work, m.dpi, &view_);
-            reserve_other_widgets(grid, parent_, window, m.dpi);
+            reserve_other_widgets(grid, window);
         } else {
             // Deterministic hidden-test grid; real widgets always query Explorer.
             grid.spacing = {MulDiv(80, m.dpi, 96), MulDiv(100, m.dpi, 96)};
@@ -107,32 +123,40 @@ class Desktop {
         if (migrating) {
             i.columns = nearest_cells(i.width * scale, spacing_.cx);
             i.rows = nearest_cells(i.height * scale, spacing_.cy);
-            i.columns = std::max(i.columns, int(std::ceil(min_width * scale / spacing_.cx)));
-            i.rows = std::max(i.rows, int(std::ceil(min_height * scale / spacing_.cy)));
+            // The plugin minimum may need more cells than the desktop maximum. Clamp
+            // here so the range check below stays in charge and reports it as a
+            // permanent failure, instead of handing grid_extent a cell count it
+            // rejects with an error no retry can ever resolve.
+            i.columns =
+                std::min(12, std::max(i.columns, int(std::ceil(min_width * scale / spacing_.cx))));
+            i.rows = std::min(12, std::max(i.rows, int(std::ceil(min_height * scale / spacing_.cy))));
         }
         auto extent = grid_extent(i.columns, i.rows, spacing_);
         int w = extent.cx, h = extent.cy;
         if (w < min_width * scale || h < min_height * scale || w > max_width * scale ||
             h > max_height * scale)
-            throw std::runtime_error("This grid size is outside the plugin size limits");
+            throw PlacementError(false, "This grid size is outside the plugin size limits");
         if (w > m.work.right - m.work.left || h > m.work.bottom - m.work.top)
-            throw std::runtime_error("This grid size does not fit the display; choose fewer cells");
+            throw PlacementError(true, "This grid size does not fit the display; choose fewer cells");
         int x = std::clamp<int>(m.work.left + int(std::lround(i.x * scale)), m.work.left, m.work.right - w);
         int y = std::clamp<int>(m.work.top + int(std::lround(i.y * scale)), m.work.top, m.work.bottom - h);
         POINT pt{x, y};
         if (!offdesktop) {
             auto aligned = aligned_position(pt, SIZE{w, h}, m.work, grid);
             if (!aligned)
-                throw std::runtime_error(
-                    "No free desktop grid area; free space or resize the widget and retry");
+                throw PlacementError(
+                    true, "No free desktop grid area; free space or resize the widget and retry");
             pt = *aligned;
             x = pt.x;
             y = pt.y;
-            MapWindowPoints(HWND_DESKTOP, parent_, &pt, 1);
         }
+        // Screen coordinates throughout: the widget is a top-level window now, so
+        // there is no parent client area to map into.
         check(SetWindowPos(window, HWND_TOP, pt.x, pt.y, w, h,
                            SWP_NOACTIVATE | (offdesktop ? 0 : SWP_SHOWWINDOW)),
               "Position widget");
+        if (!offdesktop)
+            restack(window, parent_);
         if (!offdesktop)
             check(SetPropW(window, L"WindowsWidget.Placed", reinterpret_cast<HANDLE>(1)),
                   "Reserve widget grid area");

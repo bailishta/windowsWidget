@@ -1,0 +1,18 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- See WinUI.props. Import AFTER Microsoft.Cpp.targets. -->
+  <Import Project="$(RepoRoot)packages\Microsoft.Web.WebView2.1.0.3179.45\build\native\Microsoft.Web.WebView2.targets"/>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\Microsoft.WindowsAppSDK.Foundation.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\Microsoft.WindowsAppSDK.InteractiveExperiences.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.ML.1.8.2197\build\Microsoft.WindowsAppSDK.ML.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\Microsoft.WindowsAppSDK.Runtime.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\Microsoft.WindowsAppSDK.Widgets.targets"/>
+<Import Project="$(RepoRoot)packages\Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\Microsoft.WindowsAppSDK.WinUI.targets"/>
+</Project>

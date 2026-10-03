@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WindowsWidget component version 1",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "kind"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9-])?$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^:]+\\.png$",
+      "description": "Optional package-relative PNG icon path; file must exist inside the package and be at most 4 MiB."
+    },
+    "kind": {
+      "enum": [
+        "text",
+        "note",
+        "checklist",
+        "links",
+        "native",
+        "process"
+      ]
+    },
+    "height": {
+      "type": "number",
+      "minimum": 180,
+      "maximum": 600,
+      "default": 240
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 30
+    },
+    "entry": {
+      "pattern": "^[^:]+\\.(?:dll|exe)$",
+      "type": "string"
+    },
+    "dll": false,
+    "script": false,
+    "abi": {
+      "const": 1
+    },
+    "configuration": {
+      "type": "object"
+    },
+    "has_settings": {
+      "type": "boolean",
+      "default": true,
+      "description": "Set false for display-only components to omit the control-center settings button."
+    },
+    "settings_label": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "Optional label for the standard settings command."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "links"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "url"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "url": {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^https://[^\\s\"]+$"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "checklist"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "items": {
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      }
+    },
+    {
+      "then": {
+        "required": [
+          "entry",
+          "abi"
+        ]
+      },
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "native",
+              "process"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "entry": false,
+          "abi": false
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "native"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "entry": {
+            "pattern": "^[^:]+\\.dll$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "process"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "entry": {
+            "pattern": "^[^:]+\\.exe$"
+          }
+        }
+      }
+    }
+  ]
+}

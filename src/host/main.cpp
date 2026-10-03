@@ -1,8 +1,10 @@
 #include "Desktop.h"
 #include "Composition.h"
+#include "XamlSurface.h"
 #include "../../sdk/WidgetSdk.h"
 #include <windowsx.h>
 #include <commctrl.h>
+#include <Microsoft.UI.Dispatching.Interop.h>
 
 using namespace ww;
 namespace {
@@ -16,14 +18,17 @@ struct Host {
     HWND control = nullptr, window = nullptr, content = nullptr;
     Desktop desktop;
     HMODULE module = nullptr;
-    WidgetApi api{};
-    WidgetHostApi services{};
+    WidgetApi2 api{};
+    WidgetHostApi2 services{};
+    XamlSurface xaml;
+    bool wants_xaml = false;
     void *instance = nullptr;
     Instance state;
     std::string data_dir;
     bool dark = true, offdesktop = false, quitting = false, unavailable = false, dragging = false,
          resizing = false, rebuilding = false;
-    bool display_changed = false;
+    bool display_changed = false, placement_permanent = false;
+    std::string last_unavailable, last_failure;
     POINT anchor{};
     RECT original{};
     UINT dpi = 96;
@@ -57,14 +62,53 @@ struct Host {
         send(message(name, state.id, request));
     }
     void error(std::string text, bool temporary = false) {
+        // Recovery retries once per tick; an unchanged condition is reported once
+        // instead of flooding the manager log with identical lines.
+        auto &last = temporary ? last_unavailable : last_failure;
+        if (text == last)
+            return;
+        last = text;
         auto j = message(temporary ? "unavailable" : "error", state.id, request);
         put(j, L"error", text);
         send(j);
+    }
+    // Records a placement failure with the classification that travelled with the
+    // exception: only a transient one is retried by the periodic tick.
+    void placement_failed(bool temporary, std::string const &failed) {
+        unavailable = true;
+        placement_permanent = !temporary;
+        error(failed, temporary);
+    }
+    void mark_available() {
+        unavailable = false;
+        placement_permanent = false;
+        last_unavailable.clear();
+        last_failure.clear();
     }
     void layout_event() {
         auto j = message("layout", state.id, request);
         j.SetNamedValue(L"instance", encode(state));
         send(j);
+    }
+    void log_text(std::string const &text, uint32_t level) {
+        auto j = message("log", state.id, request);
+        put(j, L"text", text);
+        put(j, L"level", double(level));
+        put(j, L"thread", double(GetCurrentThreadId()));
+        send(j);
+    }
+    void on_xaml_event(std::string const &name) {
+        if (instance && api.ui_event)
+            api.ui_event(instance, name.c_str());
+    }
+    static uint32_t __cdecl render_ui(void *context, const char *markup) {
+        auto self = static_cast<Host *>(context);
+        std::string failure;
+        if (!self->xaml.render(markup, failure)) {
+            self->log_text("Widget XAML rejected: " + failure, 3);
+            return 0;
+        }
+        return 1;
     }
     void destroy_plugin() {
         if (instance && api.destroy) {
@@ -72,6 +116,7 @@ struct Host {
             instance = nullptr;
             content = nullptr;
         }
+        xaml.detach();
     }
     static LRESULT CALLBACK window_proc(HWND h, UINT m, WPARAM w, LPARAM l) {
         auto self = reinterpret_cast<Host *>(GetWindowLongPtrW(h, GWLP_USERDATA));
@@ -109,17 +154,36 @@ struct Host {
                     self->display_changed = true;
                     return 0;
                 }
-            } catch (...) {
-                self->unavailable = true;
-                self->error(error_text(), true);
+            } catch (PlacementError const &e) {
+                self->placement_failed(e.temporary, error_text());
                 if (self->window && IsWindow(self->window))
                     ShowWindow(self->window, SW_HIDE);
+            } catch (...) {
+                // Not a placement problem - a plugin that rejected its configuration,
+                // for example - so the widget itself is fine and must stay visible.
+                // The periodic retry is deliberately not armed either: a later
+                // successful placement would report the widget ready and clear the
+                // error this failure is reporting.
+                self->error(error_text(), true);
             }
         return DefWindowProcW(h, m, w, l);
     }
     void create_plugin() {
-        WidgetCreateInfo info{sizeof(info), window, dpi, dark ? 1u : 0u, state.config.c_str(), &services};
+        // A XAML widget has no content window of its own: the host owns the island
+        // and the plugin only hands over markup (see WidgetSdk.h).
+        if (wants_xaml) {
+            std::string failure;
+            if (!xaml.attach(window, [this](std::string const &name) { on_xaml_event(name); }, failure))
+                throw std::runtime_error("XAML surface unavailable: " + failure);
+        }
+        WidgetCreateInfo info{sizeof(info), window, dpi, dark ? 1u : 0u, state.config.c_str(),
+                              reinterpret_cast<const WidgetHostApi *>(&services)};
         winrt::check_hresult(api.create(&info, &instance, &content));
+        if (wants_xaml) {
+            check(instance != nullptr, "XAML widget returned no instance");
+            resize_content();
+            return;
+        }
         DWORD pid = 0;
         GetWindowThreadProcessId(content, &pid);
         check(instance && IsWindow(content) && pid == GetCurrentProcessId() && GetParent(content) == window,
@@ -140,6 +204,9 @@ struct Host {
         if (content && IsWindow(content))
             SetWindowPos(content, nullptr, pad, bar, std::max(1L, r.right - LONG(pad * 2)),
                          std::max(1L, r.bottom - LONG(bar + pad)), SWP_NOZORDER | SWP_NOACTIVATE);
+        if (xaml.active())
+            xaml.resize(int(std::max(1L, r.right - LONG(pad * 2))),
+                        int(std::max(1L, r.bottom - LONG(bar + pad))));
         if (instance && api.layout)
             api.layout(instance, std::max(1L, r.right - LONG(pad * 2)),
                        std::max(1L, r.bottom - LONG(bar + pad)), dpi);
@@ -149,15 +216,27 @@ struct Host {
     }
     void create_window() {
         if (!offdesktop) {
-            if (!desktop.discover()) {
+            // Discovery and the DPI hand-off race against the same Explorer restart;
+            // both failures are transient and retried by the periodic tick.
+            try {
+                if (!desktop.discover())
+                    throw std::runtime_error(
+                        "Explorer desktop unavailable; retry when desktop is ready");
+                desktop.match_dpi();
+            } catch (...) {
                 unavailable = true;
-                error("Explorer desktop unavailable; retry when desktop is ready", true);
+                error(error_text(), true);
                 return;
             }
-            desktop.match_dpi();
         } else
             SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         rebuilding = true;
+        struct Rebuilding {
+            bool &flag;
+            ~Rebuilding() {
+                flag = false;
+            }
+        } rebuilding_guard{rebuilding};
         if (window && IsWindow(window)) {
             destroy_plugin();
             DestroyWindow(window);
@@ -168,21 +247,79 @@ struct Host {
                                  L"WindowsWidget", WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, 0, 0, 260,
                                  160, nullptr, nullptr, GetModuleHandleW(nullptr), this);
         check(window != nullptr, "Create widget container");
-        if (!offdesktop)
-            desktop.attach(window);
-        initialize_widget_surface(window);
-        place();
+        try {
+            initialize_widget_surface(window);
+        } catch (...) {
+            // Attaching to the desktop and enabling the composition surface fail
+            // while Explorer restarts. Drop the half-built container so the periodic
+            // recovery path retries it; keeping it would leave a hidden window that
+            // no longer matches the "no container means rebuild" invariant.
+            auto failed = error_text();
+            DestroyWindow(window);
+            window = nullptr;
+            placement_failed(true, failed);
+            return;
+        }
         dpi = GetDpiForWindow(window);
-        create_plugin();
+        try {
+            create_plugin();
+        } catch (...) {
+            // The plugin produced no usable content. Keep the container so the
+            // periodic recovery does not rebuild it, and stop the placement retry:
+            // without content a later successful place() would report the widget
+            // ready even though nothing is behind it.
+            destroy_plugin();
+            unavailable = true;
+            placement_permanent = true;
+            if (!offdesktop)
+                ShowWindow(window, SW_HIDE);
+            error(error_text());
+            return;
+        }
+        try {
+            place();
+        } catch (PlacementError const &e) {
+            if (!e.temporary) {
+                // A size the plugin's own limits can never hold stays broken on
+                // every retry, so it is reported like any other load failure.
+                auto failed = error_text();
+                destroy_plugin();
+                DestroyWindow(window);
+                window = nullptr;
+                placement_failed(false, failed);
+                return;
+            }
+            // A full grid or a changed display comes right on its own. The widget is
+            // already complete, so keep it and let the periodic tick retry only the
+            // placement rather than rebuilding the container and reloading the
+            // plugin once per second.
+            unavailable = true;
+            placement_permanent = false;
+            if (!offdesktop)
+                ShowWindow(window, SW_HIDE);
+            error(error_text(), true);
+            return;
+        } catch (...) {
+            // The desktop query and the cross-host placement mutex fail while
+            // Explorer is busy or restarting; the widget is complete, so retry only
+            // the placement.
+            unavailable = true;
+            placement_permanent = false;
+            if (!offdesktop)
+                ShowWindow(window, SW_HIDE);
+            error(error_text(), true);
+            return;
+        }
         if (!offdesktop)
             ShowWindow(window, SW_SHOWNOACTIVATE);
+        resize_content();
         RedrawWindow(window, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
         auto diagnostic = message("log", state.id);
         put(diagnostic, L"text",
             "composed widget surface; alpha=255; parentExStyle=" +
                 std::to_string(offdesktop ? 0 : GetWindowLongPtrW(desktop.parent(), GWL_EXSTYLE)));
         send(diagnostic);
-        unavailable = false;
+        mark_available();
         rebuilding = false;
         send(message("ready", state.id, 1));
         layout_event();
@@ -251,12 +388,8 @@ struct Host {
                     int height =
                         std::clamp<int>(original.bottom - original.top + dy, int(minh * s), int(maxh * s));
                     auto cell = desktop.spacing();
-                    state.columns = std::clamp(nearest_cells(width, cell.cx),
-                                               std::max(1, int(std::ceil(minw * s / cell.cx))),
-                                               std::min(12, int(std::floor(maxw * s / cell.cx))));
-                    state.rows = std::clamp(nearest_cells(height, cell.cy),
-                                            std::max(1, int(std::ceil(minh * s / cell.cy))),
-                                            std::min(12, int(std::floor(maxh * s / cell.cy))));
+                    state.columns = clamped_cells(width, cell.cx, minw, maxw, s);
+                    state.rows = clamped_cells(height, cell.cy, minh, maxh, s);
                     auto extent = grid_extent(state.columns, state.rows, cell);
                     width = extent.cx;
                     height = extent.cy;
@@ -279,9 +412,18 @@ struct Host {
                     state.width = width;
                     state.height = height;
                 }
-                place();
-                resize_content();
-                layout_event();
+                // A drop can land on a monitor with no free cell, or race an Explorer
+                // restart. Both resolve on their own, so they must not escape to the
+                // generic handler as a permanent failure that ends the host.
+                try {
+                    place();
+                    resize_content();
+                    layout_event();
+                } catch (PlacementError const &e) {
+                    placement_failed(e.temporary, error_text());
+                } catch (...) {
+                    placement_failed(true, error_text());
+                }
             }
             return 0;
         case WM_CAPTURECHANGED:
@@ -289,6 +431,11 @@ struct Host {
             return 0;
         case WM_DESTROY:
             if (h == window && !quitting && !rebuilding) {
+                // Explorer tore the desktop down; the plugin's content window is
+                // about to go with the container. Release the plugin here, while
+                // its window still exists, so the rebuild path never calls
+                // destroy() on a HWND the system has already reclaimed.
+                destroy_plugin();
                 window = nullptr;
                 content = nullptr;
                 unavailable = true;
@@ -314,6 +461,7 @@ struct Host {
             }
             if (op == "theme") {
                 dark = j.GetNamedBoolean(L"dark", true);
+                xaml.theme(dark);
                 if (instance && api.theme)
                     api.theme(instance, dark);
                 if (window)
@@ -335,14 +483,20 @@ struct Host {
                     state.columns = desired.columns;
                     state.rows = desired.rows;
                     state.layout_revision = desired.layout_revision;
-                    place();
-                    resize_content();
-                    layout_event();
-                    // A successful resize can recover a previously unavailable placement.
-                    if (unavailable) {
-                        unavailable = false;
-                        send(message("ready", state.id, 1));
+                    if (window && IsWindow(window)) {
+                        place();
+                        resize_content();
+                        layout_event();
+                        // A successful resize can recover a previously unavailable
+                        // placement, but only while the plugin actually has content:
+                        // otherwise this would report a widget ready with nothing in it.
+                        if (unavailable && instance) {
+                            mark_available();
+                            send(message("ready", state.id, 1));
+                        }
                     }
+                    // Without a container the grid dimensions above are enough: the
+                    // periodic recovery rebuilds the widget at the requested size.
                 }
             } else if (op == "configure") {
                 auto config = str(j.GetNamedObject(L"configuration"));
@@ -367,12 +521,24 @@ struct Host {
         }
         if (display_changed && window && IsWindow(window)) {
             display_changed = false;
-            place();
-            layout_event();
+            try {
+                place();
+                layout_event();
+                if (unavailable) {
+                    mark_available();
+                    send(message("ready", state.id, 1));
+                }
+            } catch (PlacementError const &e) {
+                placement_failed(e.temporary, error_text());
+            } catch (...) {
+                placement_failed(true, error_text());
+            }
         }
         if (now_ms() - last_parent_check < 1000)
             return;
         last_parent_check = now_ms();
+        if (window && IsWindow(window))
+            Desktop::restack(window, desktop.parent());
         if (!desktop.valid() || !window || !IsWindow(window)) {
             if (window && IsWindow(window))
                 ShowWindow(window, SW_HIDE);
@@ -383,10 +549,28 @@ struct Host {
             try {
                 create_window();
             } catch (...) {
+                // create_window reports desktop and placement failures itself and
+                // returns; anything escaping it is a real host failure worth
+                // surfacing as an error the user can retry explicitly.
                 unavailable = true;
                 if (window && IsWindow(window))
                     ShowWindow(window, SW_HIDE);
-                error(error_text(), true);
+                error(error_text());
+            }
+        } else if (unavailable && !placement_permanent && instance) {
+            // An earlier placement failed while the container stayed alive, so the
+            // plugin is healthy and only the position is missing. Retry on this
+            // window instead of rebuilding the plugin; a grid that has since been
+            // freed or re-measured starts working again on its own.
+            try {
+                place();
+                layout_event();
+                mark_available();
+                send(message("ready", state.id, 1));
+            } catch (PlacementError const &e) {
+                placement_failed(e.temporary, error_text());
+            } catch (...) {
+                placement_failed(true, error_text());
             }
         }
     }
@@ -411,11 +595,13 @@ struct Host {
         services = {sizeof(services),
                     1,
                     this,
-                    [](void *p, uint32_t, const char *text) {
+                    [](void *p, uint32_t level, const char *text) {
                         try {
                             auto self = static_cast<Host *>(p);
                             auto j = message("log", self->state.id);
                             put(j, L"text", std::string_view(text ? text : ""));
+                            put(j, L"level", double(level));
+                            put(j, L"thread", double(GetCurrentThreadId()));
                             self->send(j);
                         } catch (...) {
                         }
@@ -431,7 +617,7 @@ struct Host {
                         } catch (...) {
                         }
                     },
-                    data_dir.c_str()};
+                    data_dir.c_str(), render_ui};
         WNDCLASSW wc{};
         wc.hInstance = GetModuleHandleW(nullptr);
         wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
@@ -468,25 +654,38 @@ struct Host {
             }
         });
         try {
-            SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+            // Deliberately no SetDefaultDllDirectories: restricting the process-wide
+            // default search path makes WinUI's own module lookups fail later, which
+            // surfaces as a fail-fast inside Microsoft.ui.xaml.dll. The flags on
+            // LoadLibraryExW already give the plugin the search order it needs.
             auto dll = wide(get(init, L"dll"));
             module = LoadLibraryExW(dll.c_str(), nullptr,
                                     LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
             check(module != nullptr, "Load plugin DLL");
             auto entry = reinterpret_cast<WidgetGetApiFn>(GetProcAddress(module, "WidgetGetApi"));
             check(entry != nullptr, "WidgetGetApi export missing");
+            // Seeded with the largest struct we understand; a v1 plugin overwrites
+            // .size with the smaller v1 value and simply leaves the v2 fields alone.
             api.size = sizeof(api);
             api.version = 1;
-            winrt::check_hresult(entry(1, &api));
+            winrt::check_hresult(entry(1, reinterpret_cast<WidgetApi *>(&api)));
             check(api.version == 1 && api.size >= sizeof(WidgetApi) && api.create && api.destroy &&
                       api.configure && api.layout && api.theme,
                   "Invalid plugin ABI");
+            wants_xaml = api.size >= sizeof(WidgetApi2) && (api.capabilities & WIDGET_CAPABILITY_XAML);
+            if (wants_xaml)
+                log_text("Widget declares XAML content; the host will own the island", 1);
             create_window();
         } catch (...) {
             error(error_text());
         }
         MSG msg;
         while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
+            // Required for a host that carries Windows App SDK UI content: this gives
+            // XAML islands first refusal on keyboard accelerators and focus. It is a
+            // no-op when no plugin created one.
+            if (::ContentPreTranslateMessage(&msg))
+                continue;
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }

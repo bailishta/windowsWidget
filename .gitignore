@@ -2,6 +2,7 @@
 /packages/
 /out/
 /.vs/
+/.playwright-mcp/
 *.user
 /sdk/example/bin/
 /sdk/example/obj/

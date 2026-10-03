@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "user.my-text",
+  "name": "一句提醒",
+  "kind": "text",
+  "height": 200,
+  "text": "慢一点，把重要的事做好。"
+}

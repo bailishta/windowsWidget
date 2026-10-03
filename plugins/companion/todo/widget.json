@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "builtin.todo",
+  "name": "待办事项",
+  "kind": "process",
+  "height": 280,
+  "description": "添加、完成和管理自己的待办。",
+  "entry": "TodoComponent.exe",
+  "abi": 1,
+  "icon": "icon.png",
+  "settings_label": "管理待办",
+  "legacy_component": true,
+  "legacy_index": 1
+}

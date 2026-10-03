@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{EA9F0170-42A0-4AD9-A40C-26D85938E6DE}</ProjectGuid>
+    <RootNamespace>NotificationCompanion</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.19041.0</WindowsTargetPlatformMinVersion>
+    <DemoPackages>$(MSBuildThisFileDirectory)..\..\packages\</DemoPackages>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <AppxPackage>false</AppxPackage>
+    <UseWinUI>true</UseWinUI>
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTGenerateWindowsMetadata>false</CppWinRTGenerateWindowsMetadata>
+    <ApplicationManifest>$(MSBuildThisFileDirectory)app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType><PlatformToolset>v143</PlatformToolset>
+    <UseDebugLibraries>false</UseDebugLibraries><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.props" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.props" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\native\Microsoft.WindowsAppSDK.Foundation.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\native\Microsoft.WindowsAppSDK.Runtime.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\native\Microsoft.WindowsAppSDK.WinUI.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.ML.1.8.2197\build\native\Microsoft.WindowsAppSDK.ML.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\native\Microsoft.WindowsAppSDK.Widgets.props" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.props" />
+  <PropertyGroup>
+    <DemoOutputName Condition="'$(DemoOutputName)'==''">ControlCenter</DemoOutputName>
+    <OutDir>$(MSBuildThisFileDirectory)..\..\out\companion-demo\$(DemoOutputName)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\..\out\obj\CompanionDemo\$(DemoOutputName)\$(Configuration)\</IntDir>
+    <TargetName Condition="'$(ComponentTargetName)'==''">WindowsWidget</TargetName><TargetName Condition="'$(ComponentTargetName)'!=''">$(ComponentTargetName)</TargetName>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ResourceCompile><AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)..\..\assets\icons;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ResourceCompile>
+    <ClCompile>
+      <LanguageStandard>stdcpp20</LanguageStandard><WarningLevel>Level4</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <Optimization>MaxSpeed</Optimization><DebugInformationFormat>ProgramDatabase</DebugInformationFormat><AdditionalOptions>/utf-8 /bigobj %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;UNICODE;_UNICODE;$(ComponentDefinitions);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link><SubSystem>Windows</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation><AdditionalDependencies>user32.lib;gdi32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uiautomationcore.lib;dwmapi.lib;comctl32.lib;shcore.lib;windowsapp.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+    <Manifest><AdditionalManifestFiles>$(MSBuildThisFileDirectory)app.manifest;%(AdditionalManifestFiles)</AdditionalManifestFiles></Manifest>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClCompile Include="$(MSBuildThisFileDirectory)main.cpp" Condition="'$(ComponentSource)'==''" /><ClCompile Include="$(ComponentSource)" Condition="'$(ComponentSource)'!=''" /><ResourceCompile Include="$(MSBuildThisFileDirectory)AppResources.rc" /><Manifest Include="$(MSBuildThisFileDirectory)app.manifest" /></ItemGroup>
+  <ItemGroup><ClInclude Include="FeatureSettings.h" /><ClInclude Include="PerformancePlot.h" /><ClInclude Include="FeatureEditors.inc" /></ItemGroup>
+  <ItemGroup><ClInclude Include="StartupSettings.h" /><ClInclude Include="StartupActions.inc" /><ClInclude Include="StartupTests.inc" /></ItemGroup>
+  <ItemGroup><ClInclude Include="ShellObserver.h" /><ClInclude Include="AsyncLog.h" /><ClInclude Include="PanelMotion.h" /><ClInclude Include="AcrylicBackdrop.h" /><ClInclude Include="WidgetLayout.h" /><ClInclude Include="WeatherData.h" /><ClInclude Include="WidgetFeatures.inc" /><ClInclude Include="FollowSession.h" /><ClInclude Include="PluginCatalog.h" /><ClInclude Include="PluginProcess.h" /><ClInclude Include="PluginRuntime.inc" /><ClInclude Include="ControlCenter.inc" /><ClInclude Include="PluginTests.inc" /></ItemGroup>
+  <Import Project="$(DemoPackages)Microsoft.Web.WebView2.1.0.3179.45\build\native\Microsoft.Web.WebView2.targets" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.SDK.BuildTools.10.0.26100.4654\build\Microsoft.Windows.SDK.BuildTools.targets" />
+  <Import Project="$(DemoPackages)Microsoft.Windows.SDK.BuildTools.MSIX.1.7.20250829.1\build\Microsoft.Windows.SDK.BuildTools.MSIX.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Base.1.8.251216001\build\native\Microsoft.WindowsAppSDK.Base.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Foundation.1.8.260803002\build\native\Microsoft.WindowsAppSDK.Foundation.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Runtime.1.8.260804001\build\native\Microsoft.WindowsAppSDK.Runtime.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.WinUI.1.8.260803003\build\native\Microsoft.WindowsAppSDK.WinUI.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.InteractiveExperiences.1.8.260708001\build\native\Microsoft.WindowsAppSDK.InteractiveExperiences.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.DWrite.1.8.25122902\build\Microsoft.WindowsAppSDK.DWrite.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.AI.1.8.79\build\native\Microsoft.WindowsAppSDK.AI.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.ML.1.8.2197\build\native\Microsoft.WindowsAppSDK.ML.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.Widgets.1.8.251231004\build\native\Microsoft.WindowsAppSDK.Widgets.targets" />
+  <Import Project="$(DemoPackages)Microsoft.WindowsAppSDK.1.8.260804001\build\native\Microsoft.WindowsAppSDK.targets" />
+</Project>

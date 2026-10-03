@@ -1,1 +1,1 @@
-{"id":"example.hello","name":"Hello 示例","version":"1.0.0","sdk":1,"architecture":"x64","entry":"HelloWidget.dll","width":240,"height":140,"minWidth":140,"minHeight":100,"maxWidth":640,"maxHeight":480}
+{"id":"example.hello","name":"Hello 示例","version":"1.0.0","sdk":1,"architecture":"x64","entry":"HelloWidget.dll","gridColumns":3,"gridRows":2,"width":240,"height":140,"minWidth":140,"minHeight":100,"maxWidth":640,"maxHeight":480}

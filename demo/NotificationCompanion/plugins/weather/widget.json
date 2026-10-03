@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "builtin.weather",
+  "name": "天气",
+  "kind": "weather",
+  "height": 264,
+  "description": "自动更新天气，可设置城市、API 与更新间隔。"
+}

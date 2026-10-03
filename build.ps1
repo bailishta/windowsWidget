@@ -37,14 +37,18 @@ Write-Output $buildOutput
 if($process.ExitCode){exit $process.ExitCode}
 if($Project -eq 'WindowsWidget.proj') {
     $output=Join-Path $repo "out\$Configuration"
-    New-Item -ItemType Directory -Force "$output\plugins\clock","$output\sdk\example","$output\ui" | Out-Null
+    New-Item -ItemType Directory -Force "$output\plugins\clock","$output\plugins\calendar","$output\plugins\todo","$output\plugins\weather","$output\sdk\example","$output\ui" | Out-Null
     Copy-Item 'src\manager\MainWindow.xaml' "$output\ui\MainWindow.xaml" -Force
     Copy-Item 'plugins\clock\widget.json',"$output\ClockWidget.dll" -Destination "$output\plugins\clock" -Force
+    foreach($p in @('calendar','todo','weather')){Copy-Item "plugins\$p\widget.json" "$output\plugins\$p" -Force}
     Copy-Item 'sdk\WidgetSdk.h' -Destination "$output\sdk" -Force
     Copy-Item 'sdk\example\HelloWidget.cpp','sdk\example\HelloWidget.vcxproj','sdk\example\widget.json' -Destination "$output\sdk\example" -Force
     if(Test-Path 'docs\SDK.md'){Copy-Item 'docs\SDK.md' "$output\sdk\README.md" -Force}
+    # The development host is built straight into sdk\devhost by its own project.
+    if(Test-Path 'docs\PLUGIN_DEV.md'){Copy-Item 'docs\PLUGIN_DEV.md' "$output\sdk" -Force}
     $vsRoot=& $vswhere -latest -products '*' -property installationPath
-    $crt=Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
+    # Sort by the toolset version, not the path: a lexicographic sort puts 14.9 above 14.44.
+    $crt=Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT" -Directory | Sort-Object -Descending -Property @{Expression={ $parsed=$_.Parent.Parent.Name -as [version]; if($parsed){$parsed}else{[version]'0.0'} }} | Select-Object -First 1
     if($crt){Copy-Item "$($crt.FullName)\*.dll" $output -Force}
     if($Test){& "$output\WidgetTests.exe" 2>&1 | Tee-Object -FilePath 'out\test-results.txt';if($LASTEXITCODE){exit $LASTEXITCODE}}
 }

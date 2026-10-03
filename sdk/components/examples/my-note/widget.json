@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "user.my-note",
+  "name": "我的便签",
+  "kind": "note",
+  "height": 280,
+  "text": "写下你的想法，点击编辑即可修改。"
+}

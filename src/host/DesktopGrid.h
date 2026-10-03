@@ -75,17 +75,18 @@ class PlacementGuard {
         ReleaseMutex(mutex_);
     }
 };
-inline void reserve_other_widgets(DesktopGrid &grid, HWND parent, HWND self, UINT /*dpi*/) {
+// Widgets are top-level windows now, so sibling widgets are found by scanning
+// top-level windows rather than the desktop's children. They live in other host
+// processes; window properties and rectangles are readable across processes.
+inline void reserve_other_widgets(DesktopGrid &grid, HWND self) {
     struct Context {
         DesktopGrid &grid;
-        HWND parent, self;
-    } context{grid, parent, self};
-    EnumChildWindows(
-        parent,
+        HWND self;
+    } context{grid, self};
+    EnumWindows(
         [](HWND window, LPARAM value) -> BOOL {
             auto &c = *reinterpret_cast<Context *>(value);
-            if (window == c.self || GetParent(window) != c.parent ||
-                !GetPropW(window, L"WindowsWidget.Placed"))
+            if (window == c.self || !GetPropW(window, L"WindowsWidget.Placed"))
                 return TRUE;
             wchar_t name[80]{};
             GetClassNameW(window, name, 80);

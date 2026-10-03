@@ -1,72 +1,36 @@
-# WindowsWidget
+# WindowsWidget · 随行组件
 
-C++20 Windows 11 桌面小组件框架原型。WinUI 3 管理器与 Win32 宿主分离，每个实例通过独立进程加载第三方 DLL。
+面向 Windows 11 的 C++ / WinUI 3 组件框架。打开通知中心或快速设置时，在系统面板旁显示独立组件卡片，收起后保持桌面干净。
 
-## 构建与运行
-
-需要 Windows 11 x64、PowerShell 7、Visual Studio 2022 Build Tools 的 C++ 桌面工具（v143），以及 Windows SDK 10.0.26100.0。WinUI 和 C++/WinRT 依赖固定在 `packages.config`；首轮还原需要连接 NuGet。
+当前可运行版本是带主控制中心的 Notification Companion：每个组件独立运行，支持用户添加零代码组件和独立 DLL MOD；已接入现有 DLL SDK。
 
 ```powershell
-pwsh -File .\build.ps1 -Restore -Test
-.\out\Release\WidgetManager.exe
+./demo/NotificationCompanion/build.ps1 -Test -Package
+./out/companion-demo/ControlCenter/WindowsWidget.exe
 ```
 
-分发时复制整个 `out\Release` 目录，不要只复制 EXE。该目录包含 WinUI 自包含运行时、VC 运行库、界面 XAML、宿主、插件及 SDK。测试程序和 PDB 可在制作发布包时排除。项目也可直接用 MSBuild 构建 `WindowsWidget.proj`；`build.ps1` 额外完成 SDK、插件和界面资源的整理。
+EXE 安装包：运行 `./build-installer.ps1 -Version 0.1.0`，生成 `out/installers/WindowsWidget-0.1.0-x64-Setup.exe`。默认按当前用户安装，升级和卸载保留用户数据；详见 [安装器说明](installer/README.md)。
 
-运行 `pwsh -File .\package.ps1` 可生成独立分发目录，自动排除测试程序、故意损坏的测试 DLL 和调试符号。
+请先退出旧 Demo；各版本共用单实例锁。默认打开主控制中心，关闭窗口后驻留托盘，**Win+N / Win+A** 打开系统面板，**Ctrl+Alt+W** 手动预览，**Ctrl+Alt+Q** 退出。
 
-## 使用
+主界面可隐藏托盘图标、启用开机自启动及选择静默启动，托盘右键保留打开控制中心与退出。点击主窗口关闭按钮后组件仍正常跟随通知中心；静默登录只驻留托盘，普通双击仍打开主窗口。自启动默认关闭，详见 [启动设置](docs/STARTUP.md)。
 
-- 下拉选择插件后点击“添加到桌面”。同一个插件可以添加多次。
-- 组件处于桌面层，普通应用可以覆盖。添加、恢复及拖动结束时吸附到桌面图标网格，选择最近的空位，避开图标和其他组件；不会移动桌面图标。没有足够空位时显示错误，腾出空间后可重试。
-- 拖动小组件顶部区域移动；拖动底部或右侧边缘调整尺寸。开启“布局锁定”后固定位置与大小。
-- 大小以桌面图标排列单元计量：3×2 表示横向 3 格、纵向 2 格。设置面板提供常用预设和 1～12 的宽高整数输入，点击“应用大小”；拖动缩放也按整格变化。内置时钟支持 1×1、1×2，紧凑模式仅显示时间。
-- 右上角可选“跟随系统 / 浅色 / 深色”，选择会保存，运行中的组件立即接收主题通知。
-- 语言仅提供“中文 / English”，同步管理器、托盘菜单、组件拖动栏和内置时钟日期，重启保留选择。首次运行在中文系统使用简体中文，其余系统使用英语；第三方插件自己的名称和内容由作者提供。
-- 选择实例可以停用、启用、重试、移除或编辑插件配置。时钟支持 `{"hour24":false}`，也可右键时钟切换 12/24 小时制。
-- 关闭管理窗口后程序继续在托盘运行；托盘右键菜单可以重新打开或退出所有组件。
-- 点击“插件目录”打开用户插件位置。加入新的插件子目录后点击“重新扫描”。
+新版会在系统面板接管后结束手动预览，系统面板关闭时所有组件一起隐藏；切换排列和启停不会把组件变成常驻预览。
 
-数据默认保存在 `%LOCALAPPDATA%\WindowsWidget`：
+新版提供天气、待办、系统状态、常用入口四张卡片，没有时钟、日历或专注计时。主控制中心直接提供启停、设置、重启、顺序和排列入口。可创建自己的便签、文字和清单，也可导入 HTTPS 链接组件。卡片采用原生 Acrylic、8 DIP 间距和统一动画，默认从通知中心旁的右下角排列；关闭自动排列后可拖动顶部标题，自由位置、待办和城市会保存。支持中英文、系统明暗主题、组件启停和位置重置。
 
-| 位置 | 内容 |
+天气来自 [Open-Meteo](https://open-meteo.com/en/docs)，支持更换城市与网络失败状态。待办支持添加、勾选和删除，文字编辑使用独立普通窗口。
+
+系统面板识别和动画没有稳定公开保证；自动跟随要求明确身份，单条消息横幅不会触发。隐藏自测覆盖布局、窗口和动画逻辑，实际系统同步、轻交互、多屏和全屏行为仍需实测。
+
+| 文档 | 内容 |
 | --- | --- |
-| `plugins/<name>/` | 清单、DLL、资源；启动时安装或升级随程序提供的内置时钟 |
-| `settings.json`、`.bak` | 实例布局、启停、锁定、插件配置、外观主题 |
-| `data/<instance-id>/` | 插件自行管理的业务数据 |
-| `logs/` | 加载阶段耗时、错误和界面诊断 |
+| [使用说明](demo/NotificationCompanion/README.md) | 新版卡片、构建与操作 |
+| [产品设计](docs/PRODUCT.md) | 外观、布局与范围 |
+| [架构](docs/ARCHITECTURE.md) / [触发](docs/TRIGGERS.md) | 框架目标与识别策略 |
+| [SDK](docs/SDK.md) / [插件接入](docs/PLUGIN_DEV.md) | 接口与兼容边界 |
+| [自定义组件与 Agent 开发指南](sdk/components/README.md) | 组件设计、限制、开发提示词与交付验收 |
+| [手动测试](docs/MANUAL_TESTS.md) / [验证记录](docs/VALIDATION.md) | 检查与限制 |
+| [变更](docs/CHANGES.md) / [依赖许可](docs/THIRD_PARTY.md) | 交付记录 |
 
-`--data-dir <目录>` 可指定测试数据目录。损坏配置优先恢复备份；无有效备份或遇到更新的格式时停止覆盖，错误显示在管理器底部。配置文件只由管理器写入。
-
-每格使用微软 `IFolderView::GetSpacing` 返回的当前桌面图标尺寸及周围留白，宽高独立计算，1×1 不一定是正方形。调整桌面图标网格后，组件保持格数并重新计算像素尺寸。旧 DIP 配置在首次成功加载时就近换算为整数格，保留实例与插件配置。第三方插件的最小/最大尺寸仍会检查，不支持的格数或放不下的尺寸会显示错误。
-
-更换程序版本前，请从托盘菜单退出旧版；只关闭管理窗口会继续驻留，新版启动将唤回旧版。内置时钟按随包修订号升级，先复制带版本名的 DLL，再原子替换清单；保留原 DLL、清单备份、实例布局和配置。该过程不联网，不升级第三方插件。
-
-## 架构与扩展
-
-```text
-WidgetManager.exe（WinUI 3 / 实例管理 / 保存布局）
-  ├─ 命名管道 → WidgetHost.exe → ClockWidget.dll
-  ├─ 命名管道 → WidgetHost.exe → ClockWidget.dll
-  └─ 命名管道 → WidgetHost.exe → 第三方 DLL
-```
-
-启动并发上限默认是 `min(4, 逻辑核心数)`；实例独立就绪、独立显示。初始化超时为 15 秒。DLL 加载、窗口创建和插件回调都发生在宿主中。关闭管理器或其异常退出时，Job Object 回收宿主。崩溃实例保留配置，等待用户重试。
-
-SDK 不依赖 WinUI；只需要 Windows 头文件。参见 [插件接入文档](docs/SDK.md) 和可独立编译的 [Hello 示例](sdk/example/HelloWidget.cpp)。
-
-## 测试和边界
-
-```powershell
-pwsh -File .\build.ps1 -Test
-# 必须在已登录、可见的真实桌面运行；会短暂创建一个测试组件。
-.\out\Release\WidgetTests.exe --desktop
-```
-
-测试覆盖串行/并发耗时、崩溃/超时/移除隔离、ABI 不兼容、异常退出后的进程回收、配置原子保存与恢复。结果与尚未验证的系统场景见 [验证记录](docs/VALIDATION.md)。
-
-Release 构建使用 MSVC 的 `/O2`、`/GL` 和 `/LTCG`，链接时移除未引用代码并合并相同函数。目前使用已安装的 VS 2022 Build Tools 17.14.39 / MSVC 14.44；没有证据表明编译器版本限制运行效率，因此未替换工具链。时钟复用文字格式资源，仅在分钟变化或需要刷新时重绘；同屏拖动不再重复重建绘制资源。未将编译器版本变化宣称为性能提升。
-
-桌面嵌入使用 Explorer 的 Progman/WorkerW 窗口结构，属于兼容性适配，不能保证未来 Windows 更新仍保持该结构。不可用时组件隐藏、配置保留，管理器提供重试；Explorer 恢复后宿主尝试重建窗口。首版不提供悬浮模式、商店、更新器、开机启动设置、云同步或业务数据托管。
-
-独立进程用于故障隔离，**不是安全沙箱**：第三方原生 DLL 按当前用户权限运行。Windows App SDK 和 VC 运行库的许可证归相应厂商所有，依赖许可见 [第三方说明](docs/THIRD_PARTY.md)。
+重构前文档保存在 [历史档案](docs/archive/2026-10-02-before-companion/INDEX.md)。

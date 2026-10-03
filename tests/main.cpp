@@ -5,6 +5,7 @@
 #include "../sdk/WidgetSdk.h"
 #include <iostream>
 #include <set>
+#include <sstream>
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 using namespace ww;
@@ -103,6 +104,88 @@ void discovery_test() {
     atomic_write(manifest, "{bad");
     require(!discover(dir / L"plugins")[0].error.empty(), "malformed manifest reported");
 }
+void logging_test() {
+    auto root = fixture(L"logging");
+    auto path = root / L"logs" / L"concurrent.log";
+    AsyncLogger concurrent;
+    std::vector<std::thread> writers;
+    for (int thread = 0; thread < 6; ++thread)
+        writers.emplace_back([&, thread] {
+            for (int n = 0; n < 40; ++n)
+                concurrent.write(path, "item=" + std::to_string(thread * 40 + n), LogLevel::Info, "test",
+                                 "instance-A");
+        });
+    for (auto &thread : writers)
+        thread.join();
+    require(concurrent.flush() && concurrent.failed() == 0 && concurrent.dropped() == 0,
+            "concurrent logging drains without write failures or lost records");
+    std::istringstream stream(read_file(path));
+    std::string line;
+    std::set<int> records;
+    bool metadata = true;
+    while (std::getline(stream, line)) {
+        metadata &= line.size() > 24 && line[10] == 'T' && line[23] == 'Z' &&
+                    line.find("[INFO] pid=") != std::string::npos &&
+                    line.find(" tid=") != std::string::npos &&
+                    line.find("[test] instance=instance-A") != std::string::npos;
+        auto pos = line.find("item=");
+        if (pos != std::string::npos)
+            records.insert(std::stoi(line.substr(pos + 5)));
+    }
+    require(metadata && records.size() == 240,
+            "each concurrent log line has UTC time, level, producer identity and complete message");
+    auto format = root / L"logs" / L"format.log";
+    concurrent.write(format, "filtered-debug", LogLevel::Debug);
+    concurrent.write(format, "错误\nsecond line\rtab\t" + std::string(12000, 'x'), LogLevel::Error,
+                     "validation");
+    require(concurrent.flush() && concurrent.failed() == 0, "error records flush successfully to disk");
+    auto text = read_file(format);
+    require(text.find("filtered-debug") == std::string::npos && text.find("[ERROR]") != std::string::npos &&
+                text.find("错误\\nsecond line\\rtab\\t") != std::string::npos &&
+                text.find("[truncated]") != std::string::npos &&
+                std::count(text.begin(), text.end(), '\n') == 1,
+            "severity filtering, UTF-8, single-line escaping and bounded messages");
+    concurrent.minimum(LogLevel::Debug);
+    concurrent.write(format, "debug-enabled", LogLevel::Debug);
+    require(concurrent.flush() && read_file(format).find("debug-enabled") != std::string::npos,
+            "debug logging can be enabled explicitly");
+    auto rotate = root / L"rotate" / L"app.log";
+    {
+        AsyncLogger rotation_logger({256, 768, 2});
+        for (int n = 0; n < 30; ++n)
+            rotation_logger.write(rotate, "rotation-entry=" + std::to_string(n) + std::string(80, 'x'));
+        require(rotation_logger.flush() && rotation_logger.failed() == 0, "size rotation succeeds");
+    }
+    size_t files = 0;
+    bool bounded = true;
+    for (auto const &file : fs::directory_iterator(rotate.parent_path())) {
+        ++files;
+        bounded &= file.file_size() <= 768;
+    }
+    require(files == 3 && bounded && read_file(rotate).find("rotation-entry=29") != std::string::npos,
+            "rotation retains the latest log and exactly two bounded backups");
+    auto destroyed = root / L"logs" / L"destructor.log";
+    {
+        AsyncLogger local;
+        local.write(destroyed, "queued-before-destruction");
+    }
+    require(read_file(destroyed).find("queued-before-destruction") != std::string::npos,
+            "normal logger destruction drains queued records");
+    auto blocked = root / L"not-a-directory";
+    atomic_write(blocked, "file blocking directory creation");
+    concurrent.write(blocked / L"app.log", "unwritable target");
+    require(concurrent.flush() && concurrent.failed() == 1,
+            "unwritable log location is counted without crashing the caller");
+    AsyncLogger burst({1, 1024 * 1024, 1});
+    auto burst_path = root / L"logs" / L"burst.log";
+    for (int n = 0; n < 4000; ++n)
+        burst.write(burst_path, "burst " + std::to_string(n));
+    require(burst.flush() && burst.dropped() > 0,
+            "bounded queue reports overload instead of growing indefinitely");
+    burst.write(burst_path, "after-overload", LogLevel::Error);
+    require(burst.flush() && read_file(burst_path).find("after-overload") != std::string::npos,
+            "logging continues after queue overload");
+}
 void grid_test() {
     auto cells = grid_extent(3, 2, {93, 103});
     require(cells.cx == 279 && cells.cy == 206,
@@ -113,6 +196,22 @@ void grid_test() {
     require(cells.cx == 93 && cells.cy == 103, "1 by 1 is one rectangular icon cell");
     require(nearest_cells(279, 93) == 3 && nearest_cells(60, 93) == 1,
             "legacy pixel dimensions migrate to nearest whole cell");
+    require(clamped_cells(400, 100, 32, 4096, 1.0) == 4 &&
+                clamped_cells(50, 100, 32, 4096, 1.0) == 1 &&
+                clamped_cells(2000, 100, 32, 4096, 1.0) == 12,
+            "dragged edge snaps to whole cells inside the plugin limits");
+    require(clamped_cells(4000, 80, 4096, 4096, 1.0) == 12 &&
+                clamped_cells(4100, 80, 4096, 4096, 1.0) == 12,
+            "a plugin minimum beyond the 12-cell desktop still yields a placeable size");
+    require(clamped_cells(400, 100, 200, 150, 1.0) == 2,
+            "inverted plugin limits resolve to the minimum instead of an unordered clamp");
+    bool unmeasured = false;
+    try {
+        clamped_cells(400, 0, 32, 4096, 1.0);
+    } catch (...) {
+        unmeasured = true;
+    }
+    require(unmeasured, "invalid desktop spacing is rejected before clamping");
     DesktopGrid grid{{10, 20}, {100, 100}, {}};
     auto result = aligned_position({156, 162}, {180, 130}, {0, 0, 800, 600}, grid);
     require(result && result->x == 110 && result->y == 120, "snap chooses nearest grid point");
@@ -226,7 +325,7 @@ void language_test() {
     auto id = e.add("test.widget");
     auto log = root / L"logs" / L"manager.log";
     wait_for([&] {
-        return status_of(e, id) == "Running" &&
+        return status_of(e, id) == "Running" && fs::exists(log) &&
                read_file(log).find("test UI language=1033") != std::string::npos;
     });
     require(true, "host create callback receives English UI language");
@@ -495,6 +594,78 @@ void failure_test() {
             "missing plugin preserves restored instances");
     restored.shutdown();
 }
+void rescan_recovery_test() {
+    auto root = fixture(L"rescan");
+    EngineOptions options;
+    options.offdesktop = true;
+    Engine e(root, executable_dir() / L"WidgetHost.exe", options);
+    e.start();
+    wait_for([&] { return e.scanned(); });
+    auto id = e.add("test.widget");
+    wait_for([&] { return status_of(e, id) == "Running"; });
+    e.enable(id, false);
+    auto dll = root / L"plugins" / L"test" / L"TestWidget.dll";
+    auto parked = dll.wstring() + L".parked";
+    fs::rename(dll, parked);
+    e.rescan();
+    wait_for([&] {
+        auto plugins = e.plugins();
+        return plugins.size() == 1 && !plugins[0].error.empty();
+    });
+    e.enable(id, true);
+    require(status_of(e, id) == "Error", "missing plugin leaves the instance in Error");
+    fs::rename(parked, dll);
+    e.rescan();
+    wait_for([&] { return status_of(e, id) == "Running"; });
+    require(true, "rescan restarts an instance left in Error by a missing plugin");
+    e.shutdown();
+}
+void oversized_grid_test() {
+    // A manifest may declare more cells than its own DIP limits can ever hold. That
+    // is a configuration error no amount of retrying fixes, so it must be reported
+    // like any other load failure instead of looping as a "desktop unavailable".
+    auto root = fixture(L"oversized");
+    auto manifest_file = root / L"plugins" / L"test" / L"widget.json";
+    auto manifest = json(read_file(manifest_file));
+    put(manifest, L"gridColumns", 6.0);
+    put(manifest, L"gridRows", 6.0);
+    put(manifest, L"maxWidth", 300.0);
+    put(manifest, L"maxHeight", 300.0);
+    atomic_write(manifest_file, str(manifest));
+    EngineOptions options;
+    options.offdesktop = true;
+    Engine e(root, executable_dir() / L"WidgetHost.exe", options);
+    e.start();
+    wait_for([&] { return e.scanned(); });
+    auto id = e.add("test.widget");
+    wait_for([&] { return status_of(e, id) == "Error"; });
+    require(e.instances()[0].error.find("outside the plugin size limits") != std::string::npos,
+            "grid size beyond the plugin limits fails permanently instead of retrying");
+    e.shutdown();
+}
+void oversized_migration_test() {
+    // A manifest without grid cells is migrated from its DIP size, and a plugin may
+    // declare a minimum that needs more than the 12-cell desktop maximum. Migration
+    // must not hand the grid a cell count it rejects with an unclassified error,
+    // which would be retried once per tick forever instead of reported.
+    auto root = fixture(L"oversized-migration");
+    auto manifest_file = root / L"plugins" / L"test" / L"widget.json";
+    auto manifest = json(read_file(manifest_file));
+    put(manifest, L"width", 1000.0);
+    put(manifest, L"minWidth", 1000.0);
+    put(manifest, L"maxWidth", 1000.0);
+    atomic_write(manifest_file, str(manifest));
+    EngineOptions options;
+    options.offdesktop = true;
+    Engine e(root, executable_dir() / L"WidgetHost.exe", options);
+    e.start();
+    wait_for([&] { return e.scanned(); });
+    auto id = e.add("test.widget");
+    wait_for([&] { return status_of(e, id) == "Error"; });
+    require(e.instances()[0].error.find("outside the plugin size limits") != std::string::npos,
+            "a legacy size needing more than 12 cells fails permanently after migration");
+    e.shutdown();
+}
 void bad_dll_test() {
     auto root = fixture(L"bad-dll");
     atomic_write(root / L"plugins" / L"test" / L"TestWidget.dll", "not a PE file");
@@ -525,6 +696,49 @@ void abi_test() {
     wait_for([&] { return status_of(e, id) == "Error"; });
     require(true, "DLL rejecting SDK ABI fails only that instance");
     e.shutdown();
+}
+void devhost_test() {
+    // The standalone development host must load a real plugin, run it through the
+    // same callback order as WidgetHost.exe, and be able to render it offscreen so
+    // plugin authors can script a visual check without the manager.
+    auto root = fixture(L"devhost");
+    auto clock = root / L"plugins" / L"clock";
+    fs::create_directories(clock);
+    auto bundled = executable_dir() / L"plugins" / L"clock";
+    fs::copy_file(bundled / L"widget.json", clock / L"widget.json",
+                  fs::copy_options::overwrite_existing);
+    fs::copy_file(executable_dir() / L"ClockWidget.dll", clock / L"ClockWidget.dll",
+                  fs::copy_options::overwrite_existing);
+    auto exe = executable_dir() / L"WidgetDevHost.exe";
+    auto shot = root / L"clock.bmp";
+    std::wstring command = L"\"" + exe.wstring() + L"\" \"" + (root / L"plugins").wstring() +
+                           L"\" --shot \"" + shot.wstring() + L"\" --dark";
+    STARTUPINFOW si{sizeof(si)};
+    PROCESS_INFORMATION pi{};
+    check(CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr,
+                         executable_dir().c_str(), &si, &pi),
+          "Start development host");
+    Handle process(pi.hProcess), thread(pi.hThread);
+    require(WaitForSingleObject(process, 30000) == WAIT_OBJECT_0,
+            "development host finishes the offscreen render on its own");
+    DWORD code = 0;
+    GetExitCodeProcess(process, &code);
+    require(code == 0, "development host reports a successful run");
+    auto raw = read_file(shot);
+    require(raw.size() > 54 && raw.compare(0, 2, "BM") == 0, "development host wrote a BMP file");
+    int width = 0, height = 0, bits = 0;
+    memcpy(&width, raw.data() + 18, 4);
+    memcpy(&height, raw.data() + 22, 4);
+    memcpy(&bits, raw.data() + 28, 2);
+    require(width >= 200 && height >= 100 && bits == 32, "screenshot keeps the requested pixel format");
+    auto pixels = reinterpret_cast<uint32_t const *>(raw.data() + 54);
+    auto total = size_t(width) * size_t(height);
+    require(raw.size() >= 54 + total * 4, "screenshot holds complete pixel data");
+    size_t different = 0;
+    for (size_t n = 0; n < total; ++n)
+        if ((pixels[n] & 0x00ffffffu) != (pixels[0] & 0x00ffffffu))
+            ++different;
+    require(different > 100, "screenshot contains rendered content rather than a blank surface");
 }
 void interrupted_write_test() {
     auto root = fixture(L"interrupted");
@@ -692,6 +906,7 @@ int wmain(int argc, wchar_t **argv) {
         storage_test();
         interrupted_write_test();
         discovery_test();
+        logging_test();
         grid_test();
         grid_resize_test();
         language_test();
@@ -701,8 +916,12 @@ int wmain(int argc, wchar_t **argv) {
         auto parallel = concurrency_test(4);
         require(parallel < serial * 0.7, "parallel loading materially faster than serial baseline");
         failure_test();
+        rescan_recovery_test();
+        oversized_grid_test();
+        oversized_migration_test();
         bad_dll_test();
         abi_test();
+        devhost_test();
         orphan_test();
         std::cout << "RESULT " << passed << " assertions passed\n";
         return 0;

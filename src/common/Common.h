@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <memory>
 #include <utility>
+#include "Logger.h"
 
 namespace ww {
 namespace fs = std::filesystem;
@@ -59,7 +60,9 @@ inline std::string error_text() {
     try {
         throw;
     } catch (winrt::hresult_error const &e) {
-        return winrt::to_string(e.message());
+        char code[32];
+        sprintf_s(code, "HRESULT=0x%08X ", static_cast<unsigned>(e.code().value));
+        return std::string(code) + winrt::to_string(e.message());
     } catch (std::exception const &e) {
         return e.what();
     } catch (...) {
@@ -151,17 +154,6 @@ inline bool system_dark() {
 }
 inline uint64_t now_ms() {
     return GetTickCount64();
-}
-inline void log_file(fs::path const &p, std::string const &line) noexcept {
-    try {
-        static std::mutex m;
-        std::lock_guard lock(m);
-        fs::create_directories(p.parent_path());
-        std::ofstream f(p, std::ios::app);
-        f << now_ms() << " " << line << "\n";
-    } catch (...) {
-        OutputDebugStringW(L"WindowsWidget: cannot write diagnostic log\n");
-    }
 }
 inline JsonObject message(std::string const &op, std::string const &id, uint64_t seq = 0) {
     JsonObject j;

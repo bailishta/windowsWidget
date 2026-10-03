@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "id": "mod.bluetooth-battery",
+  "name": "蓝牙设备电量",
+  "description": "独立 MOD · 四个设备位，显示已连接蓝牙设备的真实电量。",
+  "kind": "native",
+  "has_settings": false,
+  "icon": "icon.png",
+  "abi": 1,
+  "entry": "BluetoothBattery.dll",
+  "height": 450,
+  "configuration": { "refresh_seconds": 30 }
+}

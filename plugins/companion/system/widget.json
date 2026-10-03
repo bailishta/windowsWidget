@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "builtin.system",
+  "name": "系统状态",
+  "kind": "process",
+  "height": 208,
+  "description": "紧凑网格趋势图，显示 CPU 和内存使用率。",
+  "entry": "SystemComponent.exe",
+  "abi": 1,
+  "icon": "icon.png",
+  "settings_label": "打开任务管理器",
+  "legacy_component": true,
+  "legacy_index": 3
+}

@@ -7,7 +7,7 @@ struct Test {
     WidgetHostApi const *host;
     void report_language() {
         auto message = "test UI language=" + std::to_string(GetThreadUILanguage());
-        host->log(host->context, 0, message.c_str());
+        host->log(host->context, 1, message.c_str());
     }
 };
 } // namespace

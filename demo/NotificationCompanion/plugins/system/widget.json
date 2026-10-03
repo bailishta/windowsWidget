@@ -1,0 +1,8 @@
+{
+  "schema": 1,
+  "id": "builtin.system",
+  "name": "系统状态",
+  "kind": "system",
+  "height": 208,
+  "description": "紧凑网格趋势图，显示 CPU 和内存使用率。"
+}

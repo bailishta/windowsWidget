@@ -1,0 +1,1 @@
+{"id":"org.windowswidget.calendar","name":"日历","version":"1.0.0","sdk":1,"architecture":"x64","entry":"CalendarWidget.dll","gridColumns":3,"gridRows":3,"width":320,"height":300,"minWidth":120,"minHeight":100,"maxWidth":1000,"maxHeight":1000}

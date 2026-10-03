@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "builtin.weather",
+  "name": "天气",
+  "kind": "process",
+  "height": 264,
+  "description": "自动更新天气，可设置城市、API 与更新间隔。",
+  "entry": "WeatherComponent.exe",
+  "abi": 1,
+  "icon": "icon.png",
+  "settings_label": "天气与 API 设置",
+  "legacy_component": true,
+  "legacy_index": 0
+}

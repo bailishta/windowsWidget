@@ -1,0 +1,17 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<ItemGroup Label="ProjectConfigurations"><ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration><ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration></ItemGroup>
+<PropertyGroup Label="Globals"><ProjectGuid>{5D2E9B74-3A61-4C8F-9D52-7E1B6A3C4F28}</ProjectGuid><WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props"/>
+<PropertyGroup Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><PlatformToolset>v143</PlatformToolset><UseDebugLibraries>false</UseDebugLibraries></PropertyGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props"/>
+<Import Project="..\..\build\Common.props"/>
+
+<!-- Plain Win32: no WinRT, no windowsapp.lib. See CalendarWidget.vcxproj. -->
+<ItemDefinitionGroup>
+  <Link><AdditionalDependencies>user32.lib;gdi32.lib;advapi32.lib;shell32.lib;ole32.lib;shcore.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+</ItemDefinitionGroup>
+
+<ItemGroup><ClCompile Include="Todo.cpp"/></ItemGroup>
+<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets"/>
+
+</Project>

@@ -1,0 +1,1 @@
+{"id":"org.windowswidget.todo","name":"待办","version":"1.0.0","sdk":1,"architecture":"x64","entry":"TodoWidget.dll","gridColumns":3,"gridRows":3,"width":300,"height":280,"minWidth":140,"minHeight":100,"maxWidth":1000,"maxHeight":1000}

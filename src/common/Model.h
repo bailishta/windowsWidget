@@ -19,8 +19,10 @@ struct Instance {
 };
 inline int grid_count(JsonObject const &j, wchar_t const *key) {
     double value = j.GetNamedNumber(key, 0);
+    // Zero is the sentinel for "omitted", not a usable size: a manifest without
+    // grid cells is migrated from its legacy DIP dimensions on first placement.
     if (!std::isfinite(value) || value != std::floor(value) || value < 0 || value > 12)
-        throw std::runtime_error("Grid size must be a whole number from 1 to 12");
+        throw std::runtime_error("Grid size must be a whole number from 1 to 12, or 0 when omitted");
     return int(value);
 }
 inline JsonObject encode(Instance const &i) {
