@@ -1,5 +1,9 @@
 # WindowsWidget · 随行组件
 
+[简体中文](README.md) | [English](README.en.md)
+
+**WindowsWidget** is a C++ / WinUI 3 companion for Windows 11. It shows independent widget cards beside Notification Center and Quick Settings, then hides them when the system panel closes. A central control center manages optional widgets, custom components, and plugins. See the [English introduction and getting started guide](README.en.md).
+
 面向 Windows 11 的 C++ / WinUI 3 组件框架。打开通知中心或快速设置时，在系统面板旁显示独立组件卡片，收起后保持桌面干净。
 
 当前可运行版本是带主控制中心的 Notification Companion：每个组件独立运行，支持用户添加零代码组件和独立 DLL MOD；已接入现有 DLL SDK。
